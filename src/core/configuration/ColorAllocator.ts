@@ -23,10 +23,12 @@ export class ColorAllocator {
   private fallbackColors: Colord[];
   private assigned = new Map<string, Colord>();
   private teamPlayerColors = new Map<string, Colord>();
+  private sampleWOReplace: number;
 
   constructor(colors: Colord[], fallback: Colord[]) {
     this.availableColors = [...colors];
-    this.fallbackColors = [...colors, ...fallback];
+    this.fallbackColors = [...fallback];
+    this.sampleWOReplace = 0;
   }
 
   private getTeamColorVariations(team: Team): Colord[] {
@@ -56,33 +58,80 @@ export class ColorAllocator {
     }
   }
 
+  /*
+   * Refactored to use random sampling without replacement. Assume an array of
+   * length 10: [0,1,2,3,4,5,6,7,8,9]. We need to keep track of how many items
+   * have been sampled (this.sampleWOReplace).
+   *
+   * Generate a random integer between 0 and (array.length - sampleWOReplace)
+   * (= rand(0, 10-0)). Suppose 7 is the random integer result.
+   *
+   * the first sample becomes array[7] = 7. We then increment the number of items
+   * that has been sampled (this.sampleWOReplace++ to become 1). We then swap the
+   * items at the randomly selected position and the "end" of the array.
+   *
+   * For the "end" of the array we use array.length - sampleWOReplace (= 10-1 = 9).
+   * The array becomes: [0,1,2,3,4,5,6,9,8,  7]. I've added a space in the array
+   * to show where the "unused" and "used" items are. Left of the space are
+   * "unused" items, right is "used" items
+   *
+   * Repeat the process. nextInt = rand(0, length-sampleWOReplace) = rand(0,9).
+   * Suppose 3 is the next integer. Pull the value (3) for the result, increment
+   * sampleWOReplace, swap the positions of the "end" of the array and the random result.
+   *
+   * The array becomes: [0,1,2,4,5,6,9,8,  3,7]. There are now 8 unusued, and two
+   * used items in the array.
+   *
+   * When the entire array has been used (i.e. sampleWOReplace = array.length), reset.
+   * In this case, set the array to be a copy of the fallback colors and reset the
+   * value of sampleWOReplace to 0.
+   */
   assignColor(id: string): Colord {
     if (this.assigned.has(id)) {
       return this.assigned.get(id)!;
     }
 
-    if (this.availableColors.length === 0) {
+    if (this.sampleWOReplace === this.availableColors.length) {
       this.availableColors = [...this.fallbackColors];
+      this.sampleWOReplace = 0;
     }
 
-    let selectedIndex = 0;
+    const rand = new PseudoRandom(simpleHash(id));
+    const randIndex = rand.nextInt(
+      0,
+      this.availableColors.length - this.sampleWOReplace,
+    );
 
-    if (this.assigned.size === 0 || this.assigned.size > 50) {
-      // Randomly pick the first color if no colors have been assigned yet.
-      //
-      // Or if more than 50 colors assigned just pick a random one for perf reasons,
-      // as selecting a distinct color is O(n^2), and the color palette is mostly exhausted anyways.
-      const rand = new PseudoRandom(simpleHash(id));
-      selectedIndex = rand.nextInt(0, this.availableColors.length);
-    } else {
-      const assignedColors = Array.from(this.assigned.values());
-      selectedIndex =
-        selectDistinctColorIndex(this.availableColors, assignedColors) ?? 0;
-    }
+    const color = this.availableColors[randIndex];
+    this.sampleWOReplace++;
+    this.swap(
+      this.availableColors,
+      randIndex,
+      this.availableColors.length - this.sampleWOReplace,
+    );
 
-    const color = this.availableColors.splice(selectedIndex, 1)[0];
     this.assigned.set(id, color);
     return color;
+  }
+
+  /**
+   * Swap the positions of two elements in an array
+   * @param array An array of any type
+   * @param x Position of one of the elements to be swapped
+   * @param y Position of other element to be swapped
+   */
+  swap<Type>(array: Type[], x: number, y: number) {
+    if (x >= array.length || x < 0)
+      throw new Error(
+        `Index: ${x} out of bounds for array of length: ${array.length}`,
+      );
+    if (y >= array.length || y < 0)
+      throw new Error(
+        `Index: ${y} out of bounds for array of length: ${array.length}`,
+      );
+    const temp = array[x];
+    array[x] = array[y];
+    array[y] = temp;
   }
 
   assignTeamColor(team: Team): Colord {
