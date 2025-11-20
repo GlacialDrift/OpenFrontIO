@@ -60,8 +60,8 @@ export class ColorAllocator {
 
   /*
    * Refactored to use random sampling without replacement. Assume an array of
-   * length 10: [0,1,2,3,4,5,6,7,8,9]. We need to keep track of how many items
-   * have been sampled (this.sampleWOReplace).
+   * length 10: '[0,1,2,3,4,5,6,7,8,9]'. We need to keep track of how many items
+   * have been sampled ('this.sampleWOReplace').
    *
    * Generate a random integer between 0 and (array.length - sampleWOReplace)
    * (= rand(0, 10-0)). Suppose 7 is the random integer result.
@@ -70,7 +70,7 @@ export class ColorAllocator {
    * that has been sampled (this.sampleWOReplace++ to become 1). We then swap the
    * items at the randomly selected position and the "end" of the array.
    *
-   * For the "end" of the array we use array.length - sampleWOReplace (= 10-1 = 9).
+   * For the "end" of the array we use 'array.length' - sampleWOReplace (= 10-1 = 9).
    * The array becomes: [0,1,2,3,4,5,6,9,8,  7]. I've added a space in the array
    * to show where the "unused" and "used" items are. Left of the space are
    * "unused" items, right is "used" items
@@ -79,7 +79,7 @@ export class ColorAllocator {
    * Suppose 3 is the next integer. Pull the value (3) for the result, increment
    * sampleWOReplace, swap the positions of the "end" of the array and the random result.
    *
-   * The array becomes: [0,1,2,4,5,6,9,8,  3,7]. There are now 8 unusued, and two
+   * The array becomes: [0,1,2,4,5,6,9,8,  3,7]. There are now 8 unused, and two
    * used items in the array.
    *
    * When the entire array has been used (i.e. sampleWOReplace = array.length), reset.
