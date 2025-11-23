@@ -194,6 +194,10 @@ export function candidateShoreTiles(
   const borderShoreTiles = Array.from(player.borderTiles()).filter((t) =>
     gm.isShore(t),
   );
+  // Sort the Border Shore Tiles by distance to the target tile
+  borderShoreTiles.sort(
+    (a, b) => gm.manhattanDist(a, target) - gm.manhattanDist(b, target),
+  );
 
   for (const tile of borderShoreTiles) {
     const distance = gm.manhattanDist(tile, target);
@@ -221,16 +225,33 @@ export function candidateShoreTiles(
     }
   }
 
-  // Calculate sampling interval to ensure we get at most 50 tiles
-  const samplingInterval = Math.max(
-    10,
-    Math.ceil(borderShoreTiles.length / 50),
-  );
-  const sampledTiles = borderShoreTiles.filter(
-    (_, index) => index % samplingInterval === 0,
-  );
+  // // Calculate sampling interval to ensure we get at most 50 tiles
+  // const samplingInterval = Math.max(
+  //   10,
+  //   Math.ceil(borderShoreTiles.length / 50),
+  // );
+  // const sampledTiles = borderShoreTiles.filter(
+  //   (_, index) => index % samplingInterval === 0,
+  // );
 
-  const candidates = [
+  const totalTiles = borderShoreTiles.length;
+  const firstSegmentEnd = Math.floor(totalTiles * 0.1);
+  const lastSegmentStart = Math.ceil(totalTiles * 0.9);
+
+  const firstSegment = borderShoreTiles.slice(0, firstSegmentEnd);
+  const middleSegment = borderShoreTiles.slice(
+    firstSegmentEnd,
+    lastSegmentStart,
+  );
+  const lastSegment = borderShoreTiles.slice(lastSegmentStart);
+
+  const sampledTiles = [
+    ...uniformSample(firstSegment, 25),
+    ...uniformSample(middleSegment, 15),
+    ...uniformSample(lastSegment, 10),
+  ];
+
+  return [
     bestByManhattan,
     extremumTiles.minX,
     extremumTiles.minY,
@@ -238,8 +259,13 @@ export function candidateShoreTiles(
     extremumTiles.maxY,
     ...sampledTiles,
   ].filter(Boolean) as number[];
+}
 
-  return candidates;
+function uniformSample<T>(array: T[], quantity: number): T[] {
+  if (array.length <= quantity) return array;
+
+  const samplingInterval = Math.max(1, Math.ceil(array.length / quantity));
+  return array.filter((_, index) => index % samplingInterval === 0);
 }
 
 function closestShoreTN(
