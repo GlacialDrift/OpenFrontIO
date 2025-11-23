@@ -177,7 +177,6 @@ export function candidateShoreTiles(
   player: Player,
   target: TileRef,
 ): TileRef[] {
-  let closestManhattanDistance = Infinity;
   let minX = Infinity,
     minY = Infinity,
     maxX = -Infinity,
@@ -194,20 +193,14 @@ export function candidateShoreTiles(
   const borderShoreTiles = Array.from(player.borderTiles()).filter((t) =>
     gm.isShore(t),
   );
-  // Sort the Border Shore Tiles by distance to the target tile
+  // Sort the Border Shore Tiles by distance to the target tile (only O(n logn), other implementations will make this faster)
   borderShoreTiles.sort(
     (a, b) => gm.manhattanDist(a, target) - gm.manhattanDist(b, target),
   );
+  bestByManhattan = borderShoreTiles[0];
 
   for (const tile of borderShoreTiles) {
-    const distance = gm.manhattanDist(tile, target);
     const cell = gm.cell(tile);
-
-    // Manhattan-closest tile
-    if (distance < closestManhattanDistance) {
-      closestManhattanDistance = distance;
-      bestByManhattan = tile;
-    }
 
     // Extremum tiles
     if (cell.x < minX) {
@@ -234,39 +227,35 @@ export function candidateShoreTiles(
   //   (_, index) => index % samplingInterval === 0,
   // );
 
-  const totalTiles = borderShoreTiles.length;
-  const firstSegmentEnd = Math.floor(totalTiles * 0.1);
-  const lastSegmentStart = Math.ceil(totalTiles * 0.9);
+  const borderShoreSet: Set<TileRef> = new Set(borderShoreTiles);
+  const bfsResult = gm.bfs(target, (gm, tile) => {
+    return gm.isWater(tile);
+  });
 
-  const firstSegment = borderShoreTiles.slice(0, firstSegmentEnd);
-  const middleSegment = borderShoreTiles.slice(
-    firstSegmentEnd,
-    lastSegmentStart,
-  );
-  const lastSegment = borderShoreTiles.slice(lastSegmentStart);
+  for (const tile of bfsResult) {
+    if (borderShoreSet.has(tile) && gm.isShore(tile)) {
+      return [tile];
+    }
+  }
 
-  const sampledTiles = [
-    ...uniformSample(firstSegment, 25),
-    ...uniformSample(middleSegment, 15),
-    ...uniformSample(lastSegment, 10),
-  ];
+  return [bestByManhattan];
 
-  return [
-    bestByManhattan,
-    extremumTiles.minX,
-    extremumTiles.minY,
-    extremumTiles.maxX,
-    extremumTiles.maxY,
-    ...sampledTiles,
-  ].filter(Boolean) as number[];
+  // return [
+  //   bestByManhattan,
+  //   extremumTiles.minX,
+  //   extremumTiles.minY,
+  //   extremumTiles.maxX,
+  //   extremumTiles.maxY,
+  //   ...sampledTiles,
+  // ].filter(Boolean) as number[];
 }
 
-function uniformSample<T>(array: T[], quantity: number): T[] {
-  if (array.length <= quantity) return array;
-
-  const samplingInterval = Math.max(1, Math.ceil(array.length / quantity));
-  return array.filter((_, index) => index % samplingInterval === 0);
-}
+// function uniformSample<T>(array: T[], quantity: number): T[] {
+//   if (array.length <= quantity) return array;
+//
+//   const samplingInterval = Math.max(1, Math.ceil(array.length / quantity));
+//   return array.filter((_, index) => index % samplingInterval === 0);
+// }
 
 function closestShoreTN(
   gm: GameMap,
