@@ -228,17 +228,12 @@ export function candidateShoreTiles(
   // );
 
   const borderShoreSet: Set<TileRef> = new Set(borderShoreTiles);
-  const bfsResult = gm.bfs(target, (gm, tile) => {
-    return gm.isWater(tile);
-  });
+  console.log(`Number of shore borders: ${borderShoreSet.size}`);
+  console.log(`Set of shore borders: ${borderShoreSet}`);
+  const bfsResult = reverseBFS(target, gm, borderShoreSet);
 
-  for (const tile of bfsResult) {
-    if (borderShoreSet.has(tile) && gm.isShore(tile)) {
-      return [tile];
-    }
-  }
-
-  return [bestByManhattan];
+  console.log(`Result of reverse BFS: ${bfsResult}`);
+  return [bfsResult ?? bestByManhattan];
 
   // return [
   //   bestByManhattan,
@@ -248,6 +243,47 @@ export function candidateShoreTiles(
   //   extremumTiles.maxY,
   //   ...sampledTiles,
   // ].filter(Boolean) as number[];
+}
+
+function reverseBFS(
+  target: TileRef,
+  gm: GameMap,
+  sources: Set<TileRef>,
+): TileRef | null {
+  const seen = new Set<TileRef>();
+  const q: TileRef[] = [];
+
+  for (const n of gm.neighbors(target)) {
+    if (gm.isWater(n) || gm.isShore(n)) {
+      seen.add(n);
+      q.push(n);
+    }
+  }
+
+  let count = 0;
+  while (q.length > 0) {
+    const size = q.length;
+    for (let i = 0; i < size; i++) {
+      const curr = q.shift();
+      if (curr === undefined) continue;
+      for (const n of gm.neighbors(curr)) {
+        count++;
+        if (sources.has(n)) {
+          console.log(
+            `Found source tile in reverse BFS: ${n} after searching ${count} tiles`,
+          );
+          return n;
+        }
+        if (!seen.has(n) && (gm.isWater(n) || gm.isShore(n))) {
+          seen.add(n);
+          q.push(n);
+        }
+      }
+    }
+  }
+
+  console.warn("No source tile found in reverse BFS for Transport Ship");
+  return null;
 }
 
 // function uniformSample<T>(array: T[], quantity: number): T[] {
