@@ -178,18 +178,7 @@ export function candidateShoreTiles(
   target: TileRef,
 ): TileRef[] {
   let closestManhattanDistance = Infinity;
-  let minX = Infinity,
-    minY = Infinity,
-    maxX = -Infinity,
-    maxY = -Infinity;
-
   let bestByManhattan: TileRef | null = null;
-  const extremumTiles: Record<string, TileRef | null> = {
-    minX: null,
-    minY: null,
-    maxX: null,
-    maxY: null,
-  };
 
   const borderShoreTiles = Array.from(player.borderTiles()).filter((t) =>
     gm.isShore(t),
@@ -197,27 +186,11 @@ export function candidateShoreTiles(
 
   for (const tile of borderShoreTiles) {
     const distance = gm.manhattanDist(tile, target);
-    const cell = gm.cell(tile);
 
     // Manhattan-closest tile
     if (distance < closestManhattanDistance) {
       closestManhattanDistance = distance;
       bestByManhattan = tile;
-    }
-
-    // Extremum tiles
-    if (cell.x < minX) {
-      minX = cell.x;
-      extremumTiles.minX = tile;
-    } else if (cell.y < minY) {
-      minY = cell.y;
-      extremumTiles.minY = tile;
-    } else if (cell.x > maxX) {
-      maxX = cell.x;
-      extremumTiles.maxX = tile;
-    } else if (cell.y > maxY) {
-      maxY = cell.y;
-      extremumTiles.maxY = tile;
     }
   }
 
