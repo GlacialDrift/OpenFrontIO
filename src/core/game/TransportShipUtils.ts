@@ -177,6 +177,7 @@ export function candidateShoreTiles(
   player: Player,
   target: TileRef,
 ): TileRef[] {
+  let closestManhattanDistance = Infinity;
   let minX = Infinity,
     minY = Infinity,
     maxX = -Infinity,
@@ -193,14 +194,16 @@ export function candidateShoreTiles(
   const borderShoreTiles = Array.from(player.borderTiles()).filter((t) =>
     gm.isShore(t),
   );
-  // Sort the Border Shore Tiles by distance to the target tile (only O(n logn), other implementations will make this faster)
-  borderShoreTiles.sort(
-    (a, b) => gm.manhattanDist(a, target) - gm.manhattanDist(b, target),
-  );
-  bestByManhattan = borderShoreTiles[0];
 
   for (const tile of borderShoreTiles) {
+    const distance = gm.manhattanDist(tile, target);
     const cell = gm.cell(tile);
+
+    // Manhattan-closest tile
+    if (distance < closestManhattanDistance) {
+      closestManhattanDistance = distance;
+      bestByManhattan = tile;
+    }
 
     // Extremum tiles
     if (cell.x < minX) {
@@ -218,33 +221,20 @@ export function candidateShoreTiles(
     }
   }
 
-  // // Calculate sampling interval to ensure we get at most 50 tiles
-  // const samplingInterval = Math.max(
-  //   10,
-  //   Math.ceil(borderShoreTiles.length / 50),
-  // );
-  // const sampledTiles = borderShoreTiles.filter(
-  //   (_, index) => index % samplingInterval === 0,
-  // );
-
+  // BFS is more expensive than previous random sampling of tiles. However, only a single returned tile is evaluated in
+  // `bestShoreDeploymentSource` instead of up to 50 tiles. In most cases (where the closest source is not far from the
+  // target tile), the BFS can return the optimal source tile with only a few thousand tiles visited.
+  // This compares to the A* algorithm for up to 50 tiles, where each A* is allowed up to 1_000_000 iterations
   const borderShoreSet: Set<TileRef> = new Set(borderShoreTiles);
-  console.log(`Number of shore borders: ${borderShoreSet.size}`);
-  console.log(`Set of shore borders: ${borderShoreSet}`);
   const bfsResult = reverseBFS(target, gm, borderShoreSet);
 
-  console.log(`Result of reverse BFS: ${bfsResult}`);
-  return [bfsResult ?? bestByManhattan];
-
-  // return [
-  //   bestByManhattan,
-  //   extremumTiles.minX,
-  //   extremumTiles.minY,
-  //   extremumTiles.maxX,
-  //   extremumTiles.maxY,
-  //   ...sampledTiles,
-  // ].filter(Boolean) as number[];
+  // return the best source found and only return a single Tile. Guaranteed to return a Tile as no core logic of
+  // `bestByManhattan` has changed. If there is at least 1 shore tile, then there is guaranteed to be a `bestByManhattan`.
+  // The code already handled situations where no shore tiles existed, so no need to check for that here.
+  return [bfsResult ?? bestByManhattan!];
 }
 
+// BFS from the target tile and return once a source tile has been found
 function reverseBFS(
   target: TileRef,
   gm: GameMap,
@@ -260,18 +250,13 @@ function reverseBFS(
     }
   }
 
-  let count = 0;
   while (q.length > 0) {
     const size = q.length;
     for (let i = 0; i < size; i++) {
       const curr = q.shift();
       if (curr === undefined) continue;
       for (const n of gm.neighbors(curr)) {
-        count++;
         if (sources.has(n)) {
-          console.log(
-            `Found source tile in reverse BFS: ${n} after searching ${count} tiles`,
-          );
           return n;
         }
         if (!seen.has(n) && (gm.isWater(n) || gm.isShore(n))) {
@@ -285,13 +270,6 @@ function reverseBFS(
   console.warn("No source tile found in reverse BFS for Transport Ship");
   return null;
 }
-
-// function uniformSample<T>(array: T[], quantity: number): T[] {
-//   if (array.length <= quantity) return array;
-//
-//   const samplingInterval = Math.max(1, Math.ceil(array.length / quantity));
-//   return array.filter((_, index) => index % samplingInterval === 0);
-// }
 
 function closestShoreTN(
   gm: GameMap,
